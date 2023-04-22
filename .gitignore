@@ -1,0 +1,10 @@
+HELP.md
+
+###o files###
+*.o
+
+### VS Code ###
+.vscode/
+
+build/
+
