@@ -12,8 +12,8 @@ void FileSys::test()
     // pathResolve("/usr/local/hello/a");
 
     //disk.open();
-    //disk.init();
-    cout<<sizeof(SuperBlock)<<endl;
+    init();
+    //cout<<sizeof(SuperBlock)<<endl;
 }
 
 static const int CMD_LEN=64;
@@ -47,6 +47,12 @@ bool FileSys::createFile(string filename,string filesize)
         cerr<<"The size should not exceed "<<MAX_FILE_SIZE<<endl;
         return false;
     }
+
+    /**
+     * @todo set inode and set block
+    */
+
+    return true;
 
 }
 void FileSys::init()
@@ -102,32 +108,32 @@ void FileSys::init()
 }
 bool FileSys::deleteFile(string filename)
 {
-
+    return true;
 }
 
 bool FileSys::createDir(string dir)
 {
-
+    return true;
 }
 
 bool FileSys::deleteDir(string dir)
 {
-
+    return true;
 }
 
 bool FileSys::cd(string dir)
 {
-
+    return true;
 }
 
 bool FileSys::ls()
 {
-
+    return true;
 }
 
 bool FileSys::cp(string from, string to)
 {
-
+    return true;
 }
 void FileSys::showStorageInfo()
 {

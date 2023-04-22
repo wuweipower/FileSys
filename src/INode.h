@@ -6,6 +6,7 @@ const short F = 1;//FILE
 #include<ctime>
 #include<string>
 #include<cstring>
+#include<vector>
 using std::string;
 class INode
 {
@@ -30,9 +31,9 @@ public:
         this->i_id = i_id;
         this->type = type;
         this->filesize = filesize;
-        this->directBlocks = {-1};
+        this->directBlocks[0] = -1;
         this->indirectBlock=-1;
-        
+
         time_t t;
         time(&t);
         this->createTime = timeConvert(localtime(&t));
@@ -58,7 +59,7 @@ public:
         res.tm_wday  =  t->tm_wday;
         res.tm_yday  =  t->tm_yday;
         res.tm_year  =  t->tm_year;
-        return tm;
+        return res;
     }
 
 };
@@ -68,7 +69,7 @@ class DirItem
 public:
     std::string name;          //name of file or dir
     int i_id;                  //inode id
-    DirItem(string _name,int _id):name(_name),i_id(id);
+    DirItem(string _name,int _id):name(_name),i_id(_id)
     {
     }
 };
