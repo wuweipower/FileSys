@@ -30,6 +30,7 @@ public:
     unsigned int free_inode;
 
     const int inode_begin=20*1024;                 // the first 20 blocks are used for superblock Byte
+                                                   // and the first inode is the root
     const int data_begin=inode_begin+INODE_NUM*inode_size;   // superblock + inode area  Byte
 };
 

@@ -14,7 +14,7 @@ public:
 
     int i_id;                //inode id used to search int bitmap
     int type;                //DIR or FILE
-    int filesize;            //unit: KB
+    int filesize;            //unit: B
     int directBlocks[10];    //10 direct block addresses
     int indirectBlock;       //one indirect block address 包含1kB/4B=256个pointer
     tm createTime;           //create time
@@ -31,7 +31,7 @@ public:
         this->i_id = i_id;
         this->type = type;
         this->filesize = filesize;
-        this->directBlocks[0] = -1;
+        for(int i=0;i<10;i++) directBlocks[i]=-1;
         this->indirectBlock=-1;
 
         time_t t;
@@ -63,15 +63,19 @@ public:
     }
 
 };
-
+// 32 Byte and one block can have 32 items
 class DirItem
 {    
 public:
-    std::string name;          //name of file or dir
+    string name;          //name of file or dir
     int i_id;                  //inode id
-    DirItem(string _name,int _id):name(_name),i_id(_id)
+    bool pad;
+    DirItem(string _name,int _id)
     {
+        name = _name;
+        i_id = _id;
     }
+    DirItem(){}
 };
 
 class Directory

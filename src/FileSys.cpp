@@ -12,8 +12,11 @@ void FileSys::test()
     // pathResolve("/usr/local/hello/a");
 
     //disk.open();
-    init();
+    //init();
     //cout<<sizeof(SuperBlock)<<endl;
+    cout<<sizeof(string)<<endl;//24 bytes
+    cout<<sizeof(DirItem)<<endl;//28bytes
+    cout<<sizeof(Directory)<<endl;
 }
 
 static const int CMD_LEN=64;
@@ -27,7 +30,12 @@ FileSys::~FileSys()
     fs.close();
 }
 
-
+/**
+ * 1. check the filesize
+ * 2. start from the root inode to find the root direcotory infomation
+ * 3. and check the dir in the path, if not exit, create.
+ * 4. finally set the corrspoing inode and data
+*/
 bool FileSys::createFile(string filename,string filesize)
 {
     int size;
@@ -51,7 +59,40 @@ bool FileSys::createFile(string filename,string filesize)
     /**
      * @todo set inode and set block
     */
+    vector<string> paths = pathResolve(filename);
+    //首先找到根目录 第一个inode就是root的inode
+    open();
+    int i_start = disk.superBlock.inode_begin;
+    fs.seekg(i_start);//开始读
+    INode root;
+    fs.read(reinterpret_cast<char*>(&root),sizeof(INode));
+    //根据inode获取目录或者文件
+    Directory dir;
+    for(int i=0;i<10;i++)
+    {
+        if(root.directBlocks[i]!=-1)
+        {
+            fs.seekg(root.directBlocks[i]);
+            DirItem item;
+            fs.read(reinterpret_cast<char*>(&(item)),sizeof(DirItem));
+            dir.items.push_back(item);
+        }
+    }
+    if(root.indirectBlock!=-1)
+    {
+        fs.seekg(root.indirectBlock);
+        vector<int> addrs;
+        int addr;
+        for(int i =0;i<32;i++)
+        {
+            if(addr!=-1)
+            {
+                addrs.push_back(addr);
+            }
+        }
+    }
 
+    close();
     return true;
 
 }
@@ -76,6 +117,7 @@ void FileSys::init()
     //set inode information
     INode inode(0,D,1);
     inode.directBlocks[0]=d_start;
+    inode.filesize = 32*2;   //两个items
 
     //set directory information
     Directory dir;
@@ -99,9 +141,44 @@ void FileSys::init()
     
 
     //write data to data area
-    fs.seekp(inode.directBlocks[0]);
-    fs.write(reinterpret_cast<const char*>(&dir),sizeof(Directory));
-
+    //first 10 blocks
+    int i=0;
+    for(i=0;i<dir.getSize();i++)
+    {
+        if(i==32*10) break;
+        if(i%32==0)
+        {
+            fs.seekp(inode.directBlocks[i/32]);
+        }
+        fs.write(reinterpret_cast<const char*>(&dir.items[i]),sizeof(DirItem));
+    }
+    if(i==32*10)
+    {
+        //the first 10 blocks are not big enough
+        vector<int> addrs;
+        //how many indirect address
+        fs.seekg(inode.indirectBlock);
+        for(int j=0;j<32;j++)//one block can store max 32 32-bit addresses
+        {
+            int addr;
+            fs.read(reinterpret_cast<char*>(&addr),sizeof(int));
+            if(addr!=-1)
+            {
+                addrs.push_back(addr);
+            }
+        }
+        //write 
+        int cnt = 0;
+        for(int j =i;j<dir.getSize();j++)
+        {
+            if(cnt%32==0)
+            {
+                fs.seekp(addrs[cnt/32]);
+            }
+            fs.write(reinterpret_cast<const char*>(&dir.items[j]),sizeof(DirItem));
+            cnt++;
+        }
+    }
 
     fs.close();
 
@@ -164,11 +241,38 @@ vector<string> FileSys::pathResolve(string path)
         res.push_back("/");
     }
     
+
     for(int j =0;j<i;j++)
     {
         res.push_back(argv[j]);
     }
-    
+    if(res[0]==".")
+    {
+        vector<string> cur = pathResolve(curDir);
+        res.erase(res.begin());
+        for(int i =0;i<res.size();i++)
+        cur.push_back(res[i]);
+
+        return cur;
+    }
+    else if(res[0]=="..")
+    {
+        vector<string> cur = pathResolve(curDir);
+        cur.pop_back();
+        res.erase(res.begin());
+        for(int i =0;i<res.size();i++)
+        cur.push_back(res[i]);
+        return cur;
+    }
+    else if(res[0]!="/")//默认为当前目录
+    {
+        vector<string> cur = pathResolve(curDir);
+        res.erase(res.begin());
+        for(int i =0;i<res.size();i++)
+        cur.push_back(res[i]);
+        return cur;
+    }
+    else
     return res;
 }
 void FileSys::showHelp()
