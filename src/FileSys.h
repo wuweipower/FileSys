@@ -40,18 +40,33 @@ private:
     string curDir;//current directory
     Disk disk; 
     fstream fs;
+    INode* currInode;
 
     void init();
     void showHelp();
+
     vector<string> pathResolve(string path);
-    void open()
-    {
-        fs.open("../VDISK",ios::in|ios::out|ios::binary);
-    }
-    void close()
-    {
-        fs.close();
-    }
+
+    void open();
+    void close();
+
+    void updateSuperBlock();//write back when exit
+
+    Directory *getRootDir();
+    INode* getINode(int addr);
+    void writeINode(INode*,int addr);
+    
+    Directory* getDir(INode*);
+    void writeDir(INode*,int addr);
+
+    int getInodeAddrByName(string filename,Directory* dir);
+    bool appendDir(INode* cur,string name);//append dir on the specified inode
+
+    int allocateINode();     //return the address
+    vector<int> allocateBlocks(int);     //return the addresses
+
+    vector<int> getAddrsInIndir(int addr);
+
 public:
 
     static const int MAX_FILE_SIZE = 42;//10+1024/32 KB

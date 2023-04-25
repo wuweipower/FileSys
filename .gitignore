@@ -9,3 +9,5 @@ HELP.md
 build/
 
 src/*.exe
+
+*.py

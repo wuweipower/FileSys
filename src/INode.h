@@ -14,7 +14,7 @@ public:
 
     int i_id;                //inode id used to search int bitmap
     int type;                //DIR or FILE
-    int filesize;            //unit: B
+    int filesize;            //unit: Byte
     int directBlocks[10];    //10 direct block addresses
     int indirectBlock;       //one indirect block address 包含1kB/4B=256个pointer
     tm createTime;           //create time
