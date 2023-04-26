@@ -184,6 +184,9 @@ void FileSys::init()
 }
 bool FileSys::deleteFile(string filename)
 {
+    /**
+     * 设置对应的inode和两个bitmap
+    */
     return true;
 }
 
@@ -194,21 +197,34 @@ bool FileSys::createDir(string dir)
 
 bool FileSys::deleteDir(string dir)
 {
+    /**
+     * 设置对应的inode和两个bitmap
+    */
     return true;
 }
 
 bool FileSys::cd(string dir)
 {
+    /**
+     * 首先检查是否存在该路径
+     * 存在的话，就设置对应的curInode和curDir就行
+    */
     return true;
 }
 
 bool FileSys::ls()
 {
+    /**
+     * 就是根据当前的inode将目录的item写出来，并且对应目录的item的inode信息展示出来就行
+    */
     return true;
 }
 
 bool FileSys::cp(string from, string to)
 {
+    /**
+     * 就是createFile的过程
+    */
     return true;
 }
 void FileSys::showStorageInfo()
@@ -219,7 +235,10 @@ void FileSys::showStorageInfo()
 
 void FileSys::cat(string filename)
 {
-
+    /**
+     * 首先检查是否存在
+     * 然后将inode中使用的block中的信息展示出来
+    */
 }
 
 vector<string> FileSys::pathResolve(string path)
@@ -594,6 +613,14 @@ bool FileSys::appendDir(INode* cur,string name)
 
 Directory* FileSys::getDir(INode* inode)
 {
+    if(inode->type!=D)
+    {
+        cerr<<"It is not a directory file"<<endl;
+        return nullptr;
+    } 
+    Directory* dir = new Directory();
+    int size = inode->filesize;
+    
 
 }
 
