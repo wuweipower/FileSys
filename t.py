@@ -1,8 +1,11 @@
-def f(x):
-    if x==3:
-        return
-    else:
-        print(x)
-        f(x+1)
-
-f(0)
+def func(str):
+    characterCount=0
+    numberCount=0
+    for i in str:
+        if '0'<=i<='9':
+            numberCount+=1
+        elif 'a'<=i<='z' or 'Z'<=i<='Z':
+            characterCount+=1
+    
+    return characterCount,numberCount
+    

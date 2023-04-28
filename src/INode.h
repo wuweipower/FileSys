@@ -12,7 +12,7 @@ class INode
 {
 public:
 
-    int i_id;                //inode id used to search int bitmap
+    int i_id;                //inode id used to search int bitmap,-1 means been deleted
     int type;                //DIR or FILE
     int filesize;            //unit: Byte
     int directBlocks[10];    //10 direct block addresses
@@ -61,15 +61,21 @@ public:
         res.tm_year  =  t->tm_year;
         return res;
     }
+    void print()
+    {
+        printf("%d %d ",type,filesize);
+        showTime(createTime);
+        showTime(modTime);
+    }
 
 };
 // 32 Byte and one block can have 32 items
 class DirItem
 {    
 public:
-    string name;          //name of file or dir
-    int i_id;                  //inode id
-    bool pad;
+    string name;               //name of file or dir
+    int i_id;//@attention 这里应该是地址                  //inode id -1 means deleted
+    bool live;                 //false means deleted
     DirItem(string _name,int _id)
     {
         name = _name;

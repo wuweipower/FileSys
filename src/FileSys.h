@@ -6,6 +6,7 @@
 #include"INode.h"
 #include"Disk.h"
 #include<vector>
+#include<random>
 using namespace std;
 using std::string;
 //16MB space
@@ -52,20 +53,22 @@ private:
 
     void updateSuperBlock();//write back when exit
 
-    Directory *getRootDir();
-    INode* getINode(int addr);
+    void getRootDir(Directory* dir);
+    void getINode(int addr,INode* inode);
     void writeINode(INode*,int addr);
     
-    Directory* getDir(INode*);
+    void getDir(INode* inode,Directory* dir);
     void writeDir(INode*,int addr);
 
-    int getInodeAddrByName(string filename,Directory* dir);
+    int getInodeAddrByName(string filename,Directory* dir);//不存在就返回-1
     bool appendDir(INode* cur,string name);//append dir on the specified inode
 
-    int allocateINode();     //return the address
+    int allocateINode(int&);                 //return the address
     vector<int> allocateBlocks(int);     //return the addresses
 
     vector<int> getAddrsInIndir(int addr);
+
+    void generateRandomChs(int addr);
 
 public:
 
