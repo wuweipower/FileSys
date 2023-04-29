@@ -80,6 +80,7 @@ public:
     {
         name = _name;
         i_id = _id;
+        live = true;
     }
     DirItem(){}
 };

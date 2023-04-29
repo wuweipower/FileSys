@@ -95,7 +95,7 @@ bool FileSys::createFile(string filename,string filesize)
     */
     int id;
     int iaddr = allocateINode(id);
-    INode inode(id,F,size);
+    INode inode(id,F,size*1024);
     if(size<=10)
     {
         vector<int> addrs = allocateBlocks(size);
@@ -133,7 +133,11 @@ bool FileSys::createFile(string filename,string filesize)
             generateRandomChs(remains[i]);
         }
     }
+    //要在最后的目录中加入这个文件的entry
+    appendDir(&inode,file);
+    //将文件的inode写到对应的inode中
     writeINode(&inode,iaddr);
+    delete dir;
     return true;
 
 }
@@ -225,13 +229,47 @@ void FileSys::init()
 bool FileSys::deleteFile(string filename)
 {
     /**
+     * find the inode
      * 设置对应的inode和两个bitmap
     */
+    vector<string> paths = pathResolve(filename);
+    Directory dir;
+    getRootDir(&dir);
+    INode inode;
+    for(int i=1;i<paths.size();i++)
+    {
+        int iaddr = getInodeAddrByName(paths[i],&dir);
+        getINode(iaddr,&inode);
+        getDir(&inode,&dir);
+    }
+    for(int i=0;i<10;i++)
+    {
+        if(inode.directBlocks[i]!=-1)
+        {
+            int id = blockAddrToId(inode.directBlocks[i]);
+            freeBlock(id);
+        }
+    }
+    if(inode.indirectBlock!=-1)
+    {
+        vector<int> addrs = getAddrsInIndir(inode.indirectBlock);
+        for(int i=0;i<addrs.size();i++)
+        {
+            int id = blockAddrToId(addrs[i]);
+            freeBlock(id);
+        }
+    }
+    freeInode(inode.i_id);
+    inode.i_id=-1;
     return true;
 }
 
 bool FileSys::createDir(string dir)
 {
+    vector<string> paths = pathResolve(dir);
+    /**
+     * 类似createFile 只不过加的是entry 设置对应的inode，写回去
+    */
     return true;
 }
 
@@ -249,6 +287,7 @@ bool FileSys::cd(string dir)
      * 首先检查是否存在该路径
      * 存在的话，就设置对应的curInode和curDir就行
     */
+    
     return true;
 }
 
@@ -292,6 +331,47 @@ void FileSys::cat(string filename)
      * 然后将inode中使用的block中的信息展示出来
     */
     vector<string> paths = pathResolve(filename);
+    Directory dir;
+    getRootDir(&dir);
+    INode inode;
+    for(int i=1;i<paths.size()-1;i++)
+    {
+        int iaddr = getInodeAddrByName(paths[i],&dir);
+        getINode(iaddr,&inode);
+        getDir(&inode,&dir);
+    }
+    int size = inode.filesize;
+    for(int i =0;i<10;i++)
+    {
+        char buf[1024];
+        if(inode.directBlocks[i]!=-1)
+        {
+            fs.seekg(inode.directBlocks[i]);
+            fs.read(reinterpret_cast<char*>(&buf),1024);
+            cout<<buf;
+        }
+    }
+    if(inode.indirectBlock!=-1)
+    {
+        vector<int> addrs;
+        fs.seekg(inode.indirectBlock);
+        for(int i=0;i<32;i++)
+        {
+            int addr;
+            fs.read(reinterpret_cast<char*>(&addr),sizeof(int));
+            if(addr!=-1)
+            {
+                addrs.push_back(addr);
+            }
+        }
+        for(int i =0;i<addrs.size();i++)
+        {
+            fs.seekg(addrs[i]);
+            char buf[1024];
+            fs.read(buf,1024);
+            cout<<buf;
+        }
+    }
 
 }
 
@@ -758,4 +838,49 @@ void FileSys::generateRandomChs(int addr)
         }
         fs.write(reinterpret_cast<const char*>(&ch),sizeof(char));            
     }
+}
+
+void FileSys::freeBlock(int id)
+{
+    if(id>=disk.superBlock.BLOCK_NUM || id<0)
+    {
+        cerr<<"block id is wrong, check your inode id and the id is "<<id<<endl;
+    }
+    disk.superBlock.free_blocks+=1;
+    disk.superBlock.blocks_used-=1;
+    disk.superBlock.block_bitmap[id]=0;
+}
+
+void FileSys::freeInode(int id)
+{
+    if(id>=disk.superBlock.INODE_NUM || id<0)
+    {
+        cerr<<"inode id is wrong, check your inode id and the id is "<<id<<endl;
+        return;
+    }
+    disk.superBlock.inode_bitmap[id]=0;
+    disk.superBlock.free_inode+=1;
+    disk.superBlock.inode_used-=1;
+}
+
+int FileSys::blockAddrToId(int addr)
+{
+    if(addr<0 || addr>=16*1024*1024)
+    {
+        cerr<<"Error block address and the addr is "<<addr<<endl;
+        return -1;
+    }
+    int id = (addr-disk.superBlock.data_begin)/disk.superBlock.block_size;
+    return id;
+}
+
+void FileSys::writeINode(INode* inode,int addr)
+{
+    fs.seekp(addr);
+    fs.write(reinterpret_cast<const char*>(inode),sizeof(INode));
+}
+
+void FileSys::writeDir(INode* inode, int addr)
+{
+
 }

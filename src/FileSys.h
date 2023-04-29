@@ -60,15 +60,20 @@ private:
     void getDir(INode* inode,Directory* dir);
     void writeDir(INode*,int addr);
 
-    int getInodeAddrByName(string filename,Directory* dir);//不存在就返回-1
+    int getInodeAddrByName(string filename,Directory* dir);//不存在就返回-1,在当前目录下找对应的文件名的inode
     bool appendDir(INode* cur,string name);//append dir on the specified inode
 
     int allocateINode(int&);                 //return the address
-    vector<int> allocateBlocks(int);     //return the addresses
+    vector<int> allocateBlocks(int);         //return the addresses
+    void freeInode(int id);
+    void freeBlock(int id);
 
     vector<int> getAddrsInIndir(int addr);
 
     void generateRandomChs(int addr);
+
+    int blockAddrToId(int addr);
+
 
 public:
 
