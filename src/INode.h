@@ -74,7 +74,9 @@ class DirItem
 {    
 public:
     string name;               //name of file or dir
-    int i_id;//@attention 这里应该是地址                  //inode id -1 means deleted
+    int i_id;                  //@attention 这里应该是地址                  
+                               //inode id -1 means deleted
+                               //@todo 应该要修改
     bool live;                 //false means deleted
     DirItem(string _name,int _id)
     {

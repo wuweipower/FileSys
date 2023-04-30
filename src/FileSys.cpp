@@ -138,6 +138,7 @@ bool FileSys::createFile(string filename,string filesize)
     //将文件的inode写到对应的inode中
     writeINode(&inode,iaddr);
     delete dir;
+    delete temp;
     return true;
 
 }
@@ -270,6 +271,22 @@ bool FileSys::createDir(string dir)
     /**
      * 类似createFile 只不过加的是entry 设置对应的inode，写回去
     */
+    Directory directory;
+    INode inode;
+    getRootDir(&directory);
+    for(int i=1;i<paths.size();i++)
+    {
+        int iaddr = getInodeAddrByName(paths[i],&directory);
+        //@attention 这里有问题
+        if(iaddr!=-1)
+        {
+            getINode(disk.superBlock.inode_begin,&inode);//这里有问题
+            bool s = appendDir(&inode,paths[i]);
+            if(!s) return false;
+        }
+        getINode(iaddr,&inode);
+        getDir(&inode,&directory);
+    }
     return true;
 }
 
@@ -278,6 +295,31 @@ bool FileSys::deleteDir(string dir)
     /**
      * 设置对应的inode和两个bitmap
     */
+    vector<string>paths = pathResolve(dir);
+    //先判断是否与当前的路径相同
+    string absPath = "";
+    for(int i =0;i<paths.size();i++)
+    {
+        absPath+=paths[i];
+    }
+    if(absPath==curDir)
+    {
+        cerr<<"The current dir should not be deleted!"<<endl;
+        return false;
+    }
+
+    //得到最后一个dir的inode
+    Directory directory;
+    INode inode;
+    getRootDir(&directory);
+    for(int i=1;i<paths.size();i++)
+    {
+        int iaddr = getInodeAddrByName(paths[i],&directory);
+        getINode(iaddr,&inode);
+        getDir(&inode,&directory);
+    }
+    int id = inode.i_id;
+    freeInode(id);
     return true;
 }
 
@@ -287,7 +329,29 @@ bool FileSys::cd(string dir)
      * 首先检查是否存在该路径
      * 存在的话，就设置对应的curInode和curDir就行
     */
-    
+    vector<string> paths = pathResolve(dir);
+    Directory directory;
+    INode inode;
+    getRootDir(&directory);
+    for(int i=1;i<paths.size();i++)
+    {
+        int iaddr = getInodeAddrByName(paths[i],&directory);
+        if(iaddr==-1)
+        {
+            cerr<<"Wrong directory"<<endl;
+            return false;
+        }
+        getINode(iaddr,&inode);
+        getDir(&inode,&directory);
+    }
+
+    curDir="";
+    for(int i =0;i<paths.size();i++)
+    {
+        curDir+=paths[i]+"/";
+    }
+    delete currInode;
+    currInode = new INode(inode);
     return true;
 }
 
@@ -305,6 +369,7 @@ bool FileSys::ls()
         getINode(iaddr,&temp);
         temp.print();
     }
+
     return true;
 }
 
@@ -315,6 +380,76 @@ bool FileSys::cp(string from, string to)
      * 创建to
      * 就是createFile的过程
     */
+    vector<string> fp = pathResolve(from);
+    vector<string> tp = pathResolve(to);
+    Directory fdir;
+    INode finode;
+    getRootDir(&fdir);
+    for(int i=1;i<fp.size();i++)
+    {
+        int iaddr = getInodeAddrByName(fp[i],&fdir);
+        getINode(iaddr,&finode);
+        getDir(&finode,&fdir);
+    }
+
+    Directory tdir;
+    INode tinode;
+    getRootDir(&tdir);
+    for(int i=1;i<tp.size()-1;i++)
+    {
+        int iaddr = getInodeAddrByName(tp[i],&tdir);
+        if(iaddr!=-1)
+        {
+            //append dir here
+        }
+        getINode(iaddr,&tinode);
+        getDir(&tinode,&tdir);
+    }
+    //copy
+    //申请inode
+    int id;
+    int iaddr = allocateINode(id);
+    //根据原来的inode的信息复制过来
+    INode new_inode = INode(id,F,finode.filesize);
+    //遍历原来的inode中的block，读取block中的信息，然后写到新的block中
+    for(int i =0;i<10;i++)
+    {
+        if(finode.directBlocks[i]!=-1)
+        {
+            char buf[1024];
+            fs.seekg(finode.directBlocks[i]);
+            fs.read(buf,1024);
+
+            int addr = allocateBlocks(1)[0];
+            new_inode.directBlocks[i] = addr;
+            fs.seekp(addr);
+            fs.write(reinterpret_cast<const char*>(buf),1024);
+        }
+    }
+    
+    if(finode.indirectBlock!=-1)
+    {
+        vector<int> new_indirAddrs;
+        vector<int> addrs = getAddrsInIndir(finode.indirectBlock);
+        for(int i =0;i<addrs.size();i++)
+        {
+            char buf[1024];
+            fs.seekg(addrs[i]);
+            fs.read(buf,1024);
+
+            int addr = allocateBlocks(1)[0];
+            new_indirAddrs.push_back(addr);
+            fs.seekp(addr);
+            fs.write(reinterpret_cast<const char*>(buf),1024);
+        }
+        new_inode.indirectBlock = allocateBlocks(1)[0];
+        fs.seekp(new_inode.indirectBlock);
+        for(int j=0;j<new_indirAddrs.size();j++)
+        {
+            fs.write(reinterpret_cast<const char*>(&new_indirAddrs[j]),sizeof(int));
+        }
+    }
+    writeINode(&new_inode,iaddr);
     return true;
 }
 void FileSys::showStorageInfo()
@@ -615,6 +750,9 @@ void FileSys::close()
     fs.close();
 }
 
+/**
+ * @attention 这里可能要修改，因为diritem应该存的是名字和对应的地址，而不是id
+*/
 int FileSys::getInodeAddrByName(string filename,Directory* dir)
 {
     for(int i=0;i<dir->getSize();i++)
@@ -850,7 +988,9 @@ void FileSys::freeBlock(int id)
     disk.superBlock.blocks_used-=1;
     disk.superBlock.block_bitmap[id]=0;
 }
-
+/**
+ * @todo 针对文件和目录对应下面的block的free
+*/
 void FileSys::freeInode(int id)
 {
     if(id>=disk.superBlock.INODE_NUM || id<0)
