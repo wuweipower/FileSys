@@ -57,3 +57,12 @@ Disk::~Disk()
     close();
 }
 
+int SuperBlock::convertBlockIdToAddr(int id)
+{
+    return data_begin + id * block_size;
+}
+
+int SuperBlock::convertInodeIdToAddr(int id)
+{
+    return inode_begin + id * inode_size;
+}

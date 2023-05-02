@@ -39,7 +39,7 @@ class FileSys
 {
 private:
     string curDir;//current directory
-    Disk disk; 
+    Disk disk;    
     fstream fs;
     INode* currInode;
 
@@ -51,33 +51,91 @@ private:
     void open();
     void close();
 
-    void updateSuperBlock();//write back when exit
+    /**
+     * write superblock back to disk in order to keep consistency
+    */
+    void updateSuperBlock();
 
+    //get the root directory and it is start of everything
     void getRootDir(Directory* dir);
+
+    //according to the address to get the inode content
     void getINode(int addr,INode* inode);
+
+    //write the inode data to disk
     void writeINode(INode*,int addr);
     
+    //according to the inode to get the directory items
     void getDir(INode* inode,Directory* dir);
+
+    //write the directory values back to disk
     void writeDir(INode*,int addr);
 
-    int getInodeAddrByName(string filename,Directory* dir);//不存在就返回-1,在当前目录下找对应的文件名的inode
-    bool appendDir(INode* cur,string name);//append dir on the specified inode
+    /**
+     * according to the filename to find the inode address
+     * and if not exis return -1
+    */
+    int getInodeAddrByName(string filename,Directory* dir);
 
-    int allocateINode(int&);                 //return the address
-    vector<int> allocateBlocks(int);         //return the addresses
+    /**
+     * append the directory item on the specified inode
+    */
+    bool appendDir(INode* cur,string name);
+
+    /**
+     * @param id the parameter will be changed to the allocated inode id
+     * @return return the address of the corrsponding block addres
+     * @attention it starts from the inode area
+    */
+    int allocateINode(int& id);                 
+
+    /**
+     * @param num the number of allocating blocks
+     * @return return the addressed
+     * @attention it starts from the data area
+    */
+    vector<int> allocateBlocks(int num);    
+
+    /**
+     * @param id the id of the freed inode
+    */     
     void freeInode(int id);
+
+    /**
+     * @param id the id of the freed block
+     * it just change the indexes
+    */
     void freeBlock(int id);
 
+    /**
+     * @param addr the indirect block address
+     * @return the address in the indirect block
+    */
     vector<int> getAddrsInIndir(int addr);
 
+    /**
+     * generate and write 
+    */
     void generateRandomChs(int addr);
 
+    /**
+     * @param addr the address
+     * @return the corrsponding id
+    */
     int blockAddrToId(int addr);
 
+    /**
+     * @param v the container to store
+     * @param addr the address
+     * @param capacity the capacity in the address block
+     * @attention the vector container will be only exactly the content
+    */
+    template<typename T>
+    void getContent(vector<T>&v,int addr,int capacity);
 
 public:
 
-    static const int MAX_FILE_SIZE = 42;//10+1024/32 KB
+    static const int MAX_FILE_SIZE = 266;//10+1024/4 
     //A welcome message with the group info (names and IDs) when the system is launched. 
     //It is also the claim of your ‘copyright’
     void welcome()

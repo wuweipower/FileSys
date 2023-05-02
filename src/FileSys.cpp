@@ -365,7 +365,7 @@ bool FileSys::ls()
     for(int i=0;i<dir.getSize();i++)
     {
         INode temp;
-        int iaddr = dir.items[i].i_id * disk.superBlock.inode_size+ disk.superBlock.inode_begin;
+        int iaddr = dir.items[i].i_addr;
         getINode(iaddr,&temp);
         temp.print();
     }
@@ -750,20 +750,15 @@ void FileSys::close()
     fs.close();
 }
 
-/**
- * @attention 这里可能要修改，因为diritem应该存的是名字和对应的地址，而不是id
-*/
+
 int FileSys::getInodeAddrByName(string filename,Directory* dir)
 {
     for(int i=0;i<dir->getSize();i++)
     {
         if(filename==dir->items[i].name)
         {
-            int addr = disk.superBlock.inode_begin+
-                       dir->items[i].i_id*disk.superBlock.inode_size;
-            return addr;
-        }
-        
+            return dir->items[i].i_addr;
+        }       
     }
     return -1;
 }
@@ -787,19 +782,18 @@ vector<int> FileSys::allocateBlocks(int num)//start from the data area to find
     }
     vector<int> addrs;
     int cnt=0;//暂时记录可以申请多少
-    for(int i =disk.superBlock.data_begin/disk.superBlock.block_size;
+    for(int i =disk.superBlock.data_area_start_index;
             i<disk.superBlock.BLOCK_NUM;i++)
     {
-        if(++cnt<=num)
-        if(disk.superBlock.block_bitmap[i]==0)
+        if(++cnt<=num && disk.superBlock.block_bitmap[i]==0)
         {
-            int addr = disk.superBlock.data_begin+i*disk.superBlock.block_size;  
+            int addr = disk.superBlock.convertBlockIdToAddr(i);  
             disk.superBlock.block_bitmap[i]=1;          
             addrs.push_back(addr);
         }
     }
-    disk.superBlock.free_blocks-=num;
-    disk.superBlock.blocks_used +=num;
+    disk.superBlock.free_blocks -= num;
+    disk.superBlock.blocks_used += num;
     return addrs;
 }
 
@@ -818,14 +812,14 @@ int FileSys::allocateINode(int& id)
     {
         if(disk.superBlock.inode_bitmap[i]==0)
         {
-            int addr = disk.superBlock.inode_begin+i*disk.superBlock.inode_size;
+            int addr = disk.superBlock.convertInodeIdToAddr(i);
             disk.superBlock.inode_bitmap[i]=1;
             id = i;
+            disk.superBlock.inode_used+=1;
+            disk.superBlock.free_inode-=1;
             return addr;
         }
     }
-    disk.superBlock.inode_used+=1;
-    disk.superBlock.free_inode-=1;
     return -1;
     
 }
@@ -903,7 +897,7 @@ void FileSys::getDir(INode* inode,Directory* dir)
             {
                 DirItem item;
                 fs.read(reinterpret_cast<char*>(&item),sizeof(DirItem));
-                if(item.i_id!=-1 && ++item_cnt<=item_num)//这里没有考虑空的情况
+                if(item.i_addr!=-1 && ++item_cnt<=item_num)//这里没有考虑空的情况
                 {
                     dir->items.push_back(item);
                 }
@@ -912,17 +906,7 @@ void FileSys::getDir(INode* inode,Directory* dir)
     }
     if(item_cnt<item_num && inode->indirectBlock!=-1)
     {
-        vector<int> addrs;
-        fs.seekg(inode->indirectBlock);
-        for(int i=0;i<32;i++)
-        {
-            int addr;
-            fs.read(reinterpret_cast<char*>(&addr),sizeof(int));
-            if(addr>0)//这里要测试
-            {
-                addrs.push_back(addr);
-            }
-        }
+        vector<int> addrs = getAddrsInIndir(inode->indirectBlock);
         for(int i=0;i<addrs.size();i++)
         {
             fs.seekg(addrs[i]);
@@ -930,7 +914,7 @@ void FileSys::getDir(INode* inode,Directory* dir)
             {
                 DirItem item;
                 fs.read(reinterpret_cast<char*>(&item),sizeof(DirItem));
-                if(item.i_id!=-1 && ++item_cnt<=item_num)
+                if(item.i_addr!=-1 && ++item_cnt<=item_num)
                 {
                     dir->items.push_back(item);
                 }
@@ -1023,4 +1007,16 @@ void FileSys::writeINode(INode* inode,int addr)
 void FileSys::writeDir(INode* inode, int addr)
 {
 
+}
+
+template<typename T>
+void FileSys::getContent(vector<T>&v, int addr, int capacity)
+{
+    fs.seekg(addr);
+    T t;
+    for(int i=0;i<capacity;i++)
+    {
+        fs.read(reinterpret_cast<char*>(&t),sizeof(T));
+        v.push_back(t);
+    }
 }

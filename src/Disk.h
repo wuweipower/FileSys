@@ -23,7 +23,7 @@ public:
     bool inode_bitmap[INODE_NUM];                 // 1024 B
 
     const unsigned int block_size=1024;           // 1024B for a block
-    const unsigned int inode_size=128;            // the size of one inode structure   
+    const unsigned int inode_size=128;            // the size of one inode structure 128byte
     unsigned int blocks_used;                     // 32B
     unsigned int free_blocks;                     // 32B
     unsigned int inode_used;
@@ -32,6 +32,12 @@ public:
     const int inode_begin=20*1024;                 // the first 20 blocks are used for superblock Byte
                                                    // and the first inode is the root
     const int data_begin=inode_begin+INODE_NUM*inode_size;   // superblock + inode area  Byte
+
+    const int data_area_start_index = 148;
+
+    int convertBlockIdToAddr(int id);
+    int convertInodeIdToAddr(int id);
+    // const int inode_area_start_index = 20;
 };
 
 class Disk
