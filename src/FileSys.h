@@ -80,7 +80,7 @@ private:
     /**
      * append the directory item on the specified inode
     */
-    bool appendDir(INode* cur,string name);
+    bool appendDir(INode* cur,string name,int inodeAddr);
 
     /**
      * @param id the parameter will be changed to the allocated inode id
@@ -99,13 +99,13 @@ private:
     /**
      * @param id the id of the freed inode
     */     
-    void freeInode(int id);
+    void freeInode(int& id);
 
     /**
      * @param id the id of the freed block
      * it just change the indexes
     */
-    void freeBlock(int id);
+    void freeBlock(int& id);
 
     /**
      * @param addr the indirect block address
@@ -125,6 +125,12 @@ private:
     int blockAddrToId(int addr);
 
     /**
+     * @param id the block id
+     * @return the address
+    */
+    int blockIdToAddr(int id);
+
+    /**
      * @param v the container to store
      * @param addr the address
      * @param capacity the capacity in the address block
@@ -132,6 +138,8 @@ private:
     */
     template<typename T>
     void getContent(vector<T>&v,int addr,int capacity);
+
+    void freeDIrHelper(INode* inode);
 
 public:
 

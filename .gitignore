@@ -11,3 +11,5 @@ build/
 src/*.exe
 
 *.py
+
+test/
