@@ -383,7 +383,7 @@ bool FileSys::cd(string dir)
         else
         {
             auto p = pathResolve(curDir);
-            curDir = curDir.substr(0,curDir.size()-p[p.size()-1].size());
+            curDir = curDir.substr(0,curDir.size()-p[p.size()-1].size()-1);
         }
         
     }
@@ -517,10 +517,21 @@ void FileSys::cat(string filename)
     */
     vector<string> paths = pathResolve(filename);
     Directory dir;
-    getRootDir(&dir);
     INode inode;
+    if(paths[0]=="/")
+    {
+        getRootDir(&dir);
+        paths.erase(paths.begin());
+        getINode(disk.superBlock.inode_begin,&inode);
+    }
+    else
+    {
+        getDir(currInode,&dir);
+        int addr = getInodeAddrByName(".",&dir);
+        getINode(addr,&inode);
+    }
     //get the nearest directory
-    for(int i=1;i<paths.size()-1;i++)
+    for(int i=0;i<paths.size()-1;i++)
     {
         int iaddr = getInodeAddrByName(paths[i],&dir);
         if(iaddr==-1)
@@ -543,8 +554,9 @@ void FileSys::cat(string filename)
             fs.seekg(inode.directBlocks[i]);
             fs.read(reinterpret_cast<char*>(&buf),1024);
             cout<<buf;
+            cout<<endl;
         }
-        cout<<endl;
+        
     }
     if(inode.indirectBlock!=-1)
     {
