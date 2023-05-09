@@ -22,8 +22,8 @@ public:
     bool block_bitmap[BLOCK_NUM];                 // 16*1024 B
     bool inode_bitmap[INODE_NUM];                 // 1024 B
 
-    const unsigned int block_size=1024;           // 1024B for a block
-    const unsigned int inode_size=128;            // the size of one inode structure 128byte
+    const static unsigned int block_size=1024;           // 1024B for a block
+    const static unsigned int inode_size=128;            // the size of one inode structure 128byte
     unsigned int blocks_used;                     // 32B
     unsigned int free_blocks;                     // 32B
     unsigned int inode_used;
@@ -32,11 +32,11 @@ public:
     // the first 20 blocks are used for superblock Byte
     // and the first inode is the root
     // it is an address
-    const int inode_begin=20*1024;
+    const static int inode_begin=20*1024;
                      
-    const int data_begin=inode_begin+INODE_NUM*inode_size;   // superblock + inode area  Byte
+    const static int data_begin=inode_begin+INODE_NUM*inode_size;   // superblock + inode area  Byte
 
-    const int data_area_start_index = 148;
+    const static int data_area_start_index = 148;
 
     int convertBlockIdToAddr(int id);
     int convertInodeIdToAddr(int id);

@@ -1,4 +1,9 @@
 #include"FileSys.h"
+#define DEBUG 1
+
+#if DEBUG
+#include"util.cpp"
+#endif
 
 /**
  * @author Xin Huang
@@ -7,16 +12,46 @@
 
 void FileSys::test()
 {
-    // pathResolve("../usr/local/hello/a");
-    // pathResolve("./usr/local/hello/a");
-    // pathResolve("/usr/local/hello/a");
-
+    // auto a = pathResolve("../usr/local/hello/a");
+    // auto b = pathResolve("./usr/local/hello/a");
+    // auto c =  pathResolve("/usr/local/hello/a");
+    // for(int i=0;i<a.size();i++)
+    // {
+    //     cout<<a[i]<<" ";
+    // }
+    // cout<<endl;
+    // for(int i=0;i<b.size();i++)
+    // {
+    //     cout<<b[i]<<" ";
+    // }
+    // cout<<endl;
+    // for(int i=0;i<c.size();i++)
+    // {
+    //     cout<<c[i]<<" ";
+    // }
+    // cout<<endl;
     //disk.open();
     //init();
     //cout<<sizeof(SuperBlock)<<endl;
     // cout<<sizeof(string)<<endl;//24 bytes
     // cout<<sizeof(DirItem)<<endl;//28bytes
     // cout<<sizeof(Directory)<<endl;
+    //cout<<sizeof(DirItem)<<endl;
+
+    // auto a = pathResolve("../usr/cpp/local");
+    // print_vector(a);
+    // a = pathResolve("./usr/cpp/local");
+    // print_vector(a);
+    // a = pathResolve("usr/cpp/local");
+    // print_vector(a);
+    //init();
+    // for(int i=0;i<disk.superBlock.BLOCK_NUM;i++)
+    // {
+    //     cout<<disk.superBlock.block_bitmap[i];
+    //     if(i%148==0)
+    //     cout<<endl;
+    // }
+    
 }
 
 static const int CMD_LEN=64;
@@ -24,13 +59,20 @@ FileSys::FileSys()
 {
     curDir="/";
     srand(unsigned(time(0)));
+    //init();
     open();
+    //superblock
+    fs.seekg(0);
+    fs.read(reinterpret_cast<char*>(&disk.superBlock),sizeof(SuperBlock));
+    //root inode
+    currInode = new INode();//没有这个就会异常 卡死
+    getINode(disk.superBlock.inode_begin,currInode);
+    
 }
 
 FileSys::~FileSys()
 {
-    updateSuperBlock();
-    fs.close();
+    delete currInode;
 }
 
 /**
@@ -42,6 +84,11 @@ FileSys::~FileSys()
 bool FileSys::createFile(string filename,string filesize)
 {
     int size;
+    if(filesize.empty())
+    {
+        cerr<<"No filesize"<<endl;
+        return false;
+    }
     try
     {
         size = stoi(filesize);
@@ -60,38 +107,60 @@ bool FileSys::createFile(string filename,string filesize)
     }
 
     vector<string> paths = pathResolve(filename);
-    Directory* dir = new Directory();
-    getRootDir(dir);
-
-    //OK, We get the root dir
-    /**
-     * @todo set inode and set block
-    */
-    /**由于第一个是根目录，所以直接跳过
-     * 先处理文件以前的目录
-     * 再处理文件
-    */
-    INode* temp;
-    for(int i =1;i<paths.size()-1;i++)
+    Directory dir;
+    INode temp;
+    int preAddr;
+    if(paths[0]=="/")
     {
-        //
-        int addr = getInodeAddrByName(paths[i],dir);
+        getRootDir(&dir);
+        paths.erase(paths.begin());
+        getINode(disk.superBlock.inode_begin,&temp);
+    }
+    else
+    {
+        getDir(currInode,&dir);
+        int addr = getInodeAddrByName(".",&dir);
+        getINode(addr,&temp);
+    }
+    preAddr = getInodeAddrByName(".",&dir);
+    //print_vector(dir->items);
+    
+    for(int i =0;i<paths.size()-1;i++)
+    {
+        int addr = getInodeAddrByName(paths[i],&dir);
         if(addr!=-1)//存在对应的dir entry
         {
-            getINode(addr,temp);
-            getDir(temp,dir);
+            getINode(addr,&temp);
+            getDir(&temp,&dir);
         }
         else//不存在对应的entry就要创建一个
         {
             int id;
             int new_iaddr = allocateINode(id);
-            INode new_inode(id,D,sizeof(DirItem));
-            writeINode(&new_inode,new_iaddr);
-            appendDir(temp,paths[i],new_iaddr);
-        }       
+            int new_baddr = allocateBlocks(1)[0];
+
+            INode new_inode(id,D,32*2);
+            new_inode.directBlocks[0] = new_baddr;
+            writeINode(&new_inode,new_iaddr); 
+
+            Directory new_dir;
+            new_dir.items.push_back(DirItem(".",new_iaddr));
+            new_dir.items.push_back(DirItem("..",preAddr));
+            
+            writeDir(&new_dir,new_baddr);
+                   
+            appendDir(&temp,paths[i],new_iaddr,preAddr);
+        }    
+        preAddr = getInodeAddrByName(".",&dir);
     }
     //处理文件
     string file = paths[paths.size()-1];
+    int flag=getInodeAddrByName(file,&dir);
+    if(flag!=-1)
+    {
+        cerr<<"The file exits! error!"<<endl;
+        return false;
+    }
     /**
      * @todo 
      * 根据大小处理block 并且填充随机字符
@@ -103,8 +172,11 @@ bool FileSys::createFile(string filename,string filesize)
     if(size<=10)
     {
         vector<int> addrs = allocateBlocks(size);
+        for(int i=0;i<size;i++)
+        {
+            inode.directBlocks[i] = addrs[i];
+        }
         //随机生成字符
-        char ch;
         for(int i =0;i<addrs.size();i++)
         {
             generateRandomChs(addrs[i]);
@@ -113,6 +185,10 @@ bool FileSys::createFile(string filename,string filesize)
     else
     {
         vector<int> addrs = allocateBlocks(10);
+        for(int i=0;i<10;i++)
+        {
+            inode.directBlocks[i] = addrs[i];
+        }
         for(int i =0;i<10;i++)
         {
             generateRandomChs(addrs[i]);
@@ -121,12 +197,14 @@ bool FileSys::createFile(string filename,string filesize)
         int remain = size-10;
         int indir = allocateBlocks(1)[0];//间接的block
         vector<int> remains = allocateBlocks(remain);
+        inode.indirectBlock = indir;
+
         fs.seekp(indir);
         for(int i=0;i<remains.size();i++)
         {
             fs.write(reinterpret_cast<const char*>(&remains[i]),sizeof(int));
         }
-        int unused = -1;
+        int unused = 0;
         for(int i=remains.size();i<32;i++)
         {
             fs.write(reinterpret_cast<const char*>(&unused),sizeof(int));
@@ -138,11 +216,11 @@ bool FileSys::createFile(string filename,string filesize)
         }
     }
     //要在最后的目录中加入这个文件的entry
-    appendDir(&inode,file,iaddr);
+    //还要更新目前的inode
+    int curAddr = getInodeAddrByName(".",&dir);
+    appendDir(&temp,file,iaddr,curAddr);
     //将文件的inode写到对应的inode中
     writeINode(&inode,iaddr);
-    delete dir;
-    delete temp;
     return true;
 
 }
@@ -204,7 +282,7 @@ bool FileSys::createDir(string dir)
             int new_iaddr=allocateINode(id);
             INode new_inode(id,D,sizeof(DirItem));//加一个item
             writeINode(&new_inode,new_iaddr);
-            bool s = appendDir(&inode,paths[i],new_iaddr);
+            bool s = appendDir(&inode,paths[i],new_iaddr,1111111);
             if(!s) return false;
         }
         else
@@ -246,7 +324,7 @@ bool FileSys::deleteDir(string dir)
         if(iaddr==-1)
         {
             cerr<<"Wrong directory name"<<endl;
-            return;
+            return false;
         }
         getINode(iaddr,&inode);
         getDir(&inode,&directory);
@@ -267,8 +345,21 @@ bool FileSys::cd(string dir)
     vector<string> paths = pathResolve(dir);
     Directory directory;
     INode inode;
-    getRootDir(&directory);
-    for(int i=1;i<paths.size();i++)
+    if(paths[0]=="/")
+    {
+        getRootDir(&directory);
+        paths.erase(paths.begin());
+        int addr = getInodeAddrByName(".",&directory);
+        getINode(addr,&inode);
+    }
+    else
+    {
+        getDir(currInode,&directory);
+        int addr = getInodeAddrByName(".",&directory);
+        getINode(addr,&inode);
+    }
+
+    for(int i=0;i<paths.size();i++)
     {
         int iaddr = getInodeAddrByName(paths[i],&directory);
         if(iaddr==-1)
@@ -280,12 +371,32 @@ bool FileSys::cd(string dir)
         getDir(&inode,&directory);
     }
     //解决一下显示的问题
-    curDir="";
-    for(int i =0;i<paths.size();i++)
+    if(paths[0]==".")
     {
-        curDir+=paths[i]+"/";
+
     }
-    curDir+="/";
+    else if(paths[0]=="..")
+    {
+        if(curDir=="/")
+        {
+        }
+        else
+        {
+            auto p = pathResolve(curDir);
+            curDir = curDir.substr(0,curDir.size()-p[p.size()-1].size());
+        }
+        
+    }
+    else
+    {
+        curDir="";
+        for(int i =0;i<paths.size();i++)
+        {
+            curDir+="/"+paths[i];
+        }
+        curDir+="/";
+    }
+
     delete currInode;
     currInode = new INode(inode);
     return true;
@@ -296,16 +407,21 @@ bool FileSys::ls()
     /**
      * 就是根据当前的inode将目录的item写出来，并且对应目录的item的inode信息展示出来就行
     */
+
     Directory dir;
+
     getDir(currInode,&dir);
+    
+    //cout<<"dir"<<dir.getSize()<<endl;
     for(int i=0;i<dir.getSize();i++)
     {
         INode temp;
         int iaddr = dir.items[i].i_addr;
         getINode(iaddr,&temp);
+        cout<<dir.items[i].name<<" ";
         temp.print();
     }
-
+    
     return true;
 }
 /**
@@ -461,39 +577,11 @@ vector<string> FileSys::pathResolve(string path)
     {
         res.push_back("/");
     }
-    
 
     for(int j =0;j<i;j++)
     {
         res.push_back(argv[j]);
     }
-    if(res[0]==".")
-    {
-        vector<string> cur = pathResolve(curDir);
-        res.erase(res.begin());
-        for(int i =0;i<res.size();i++)
-        cur.push_back(res[i]);
-
-        return cur;
-    }
-    else if(res[0]=="..")
-    {
-        vector<string> cur = pathResolve(curDir);
-        cur.pop_back();
-        res.erase(res.begin());
-        for(int i =0;i<res.size();i++)
-        cur.push_back(res[i]);
-        return cur;
-    }
-    else if(res[0]!="/")//默认为当前目录
-    {
-        vector<string> cur = pathResolve(curDir);
-        res.erase(res.begin());
-        for(int i =0;i<res.size();i++)
-        cur.push_back(res[i]);
-        return cur;
-    }
-    else
     return res;
 }
 void FileSys::showHelp()
@@ -516,7 +604,7 @@ void FileSys::entry()
     while (1)
     {
         //show the current dir
-        cout<<"FileSys@admin:"<<curDir<<"# ";
+        cout<<"FileSys@admin:"<<curDir<<" # ";    
         
         //handle the cmd
         //get the full command
@@ -599,10 +687,16 @@ void FileSys::entry()
                 test();
                 break;
             }
+            else if(temp=="init")
+            {
+                init();
+                break;
+            }
             else
             {
                 cerr<<"Error input! See the help below."<<endl;
                 showHelp();
+                break;
             }
         }
         
@@ -611,6 +705,8 @@ void FileSys::entry()
 
 void FileSys::exit()
 {
+    updateSuperBlock();
+    fs.close();
     cout<<"Exit successfully"<<endl;
 }
 
@@ -628,56 +724,19 @@ void FileSys::getRootDir(Directory* dir)
     INode root;
     getINode(disk.superBlock.inode_begin,&root);
     getDir(&root,dir);
-    // //根据inode获取目录或者文件
-    // for(int i=0;i<10;i++)
-    // {
-    //     if(root.directBlocks[i]!=-1)
-    //     {
-    //         fs.seekg(root.directBlocks[i]);
-    //         DirItem item;
-    //         fs.read(reinterpret_cast<char*>(&(item)),sizeof(DirItem));
-    //         dir->items.push_back(item);
-    //     }
-    // }
-    // if(root.indirectBlock!=-1)
-    // {
-    //     fs.seekg(root.indirectBlock);
-    //     vector<int> addrs;
-    //     int addr;
-    //     for(int i =0;i<32;i++)
-    //     {
-    //         if(addr!=-1)
-    //         {
-    //             addrs.push_back(addr);
-    //         }
-    //     }
-    //     //according to the addresses, find the remaining items
-    //     /**
-    //      * @todo get the remain items to read the right number of items
-    //     */
-    //     int remain = root.filesize/32-10;
-    //     for(int j =0;j<addrs.size();j++)
-    //     {
-    //         if(remain<=0) break;//没有剩余的了，不用往下读
-    //         if(j%32==0)
-    //         {
-    //             fs.seekg(addrs[j/32]);
-    //         }
-    //         for(int k =0;k<32;k++)//一个block最多32个directory item
-    //         {
-    //             if(remain<=0) break;
-    //             DirItem item;
-    //             fs.read(reinterpret_cast<char*>(&item),sizeof(DirItem));
-    //             dir->items.push_back(item);
-    //             --remain;
-    //         }
-    //     }
-    // }
 }
 
 void FileSys::open()
 {
-    fs.open("../VDISK",ios::in|ios::out|ios::binary);
+    try
+    {
+        fs.open("../VDISK",ios::in|ios::out|ios::binary);
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+     
 }
 
 void FileSys::close()
@@ -700,7 +759,9 @@ int FileSys::getInodeAddrByName(string filename,Directory* dir)
 void FileSys::getINode(int addr,INode* inode)
 {
     fs.seekg(addr);
+    //cout<<addr<<endl;
     fs.read(reinterpret_cast<char*>(inode),sizeof(INode));
+    //cout<<inode->filesize<<endl;
 }
 
 
@@ -717,14 +778,19 @@ vector<int> FileSys::allocateBlocks(int num)//start from the data area to find
     }
     vector<int> addrs;
     int cnt=0;//暂时记录可以申请多少
-    for(int i =disk.superBlock.data_area_start_index;
+    for(int i=disk.superBlock.data_area_start_index;
             i<disk.superBlock.BLOCK_NUM;i++)
     {
-        if(++cnt<=num && disk.superBlock.block_bitmap[i]==0)
+        if(cnt<num && disk.superBlock.block_bitmap[i]==false)
         {
             int addr = disk.superBlock.convertBlockIdToAddr(i);  
             disk.superBlock.block_bitmap[i]=1;          
             addrs.push_back(addr);
+            ++cnt;
+        }
+        if(cnt==num)
+        {
+            break;
         }
     }
     disk.superBlock.free_blocks -= num;
@@ -758,7 +824,7 @@ int FileSys::allocateINode(int& id)
     return -1;
     
 }
-bool FileSys::appendDir(INode* cur,string name,int inodeAddr)
+bool FileSys::appendDir(INode* cur,string name,int inodeAddr, int currAddr)
 {
     /**
      * 先判断是否还有空间
@@ -772,8 +838,7 @@ bool FileSys::appendDir(INode* cur,string name,int inodeAddr)
    }
    //先计算当前已经有多少dir_item 一个item32字节
    int item_size = size/32;
-//    int id;
-//    int inodeAddr = allocateINode(id);
+
    if(inodeAddr!=-1)
    {
         // int i_id = (inodeAddr-disk.superBlock.inode_begin)/disk.superBlock.inode_size;
@@ -782,11 +847,17 @@ bool FileSys::appendDir(INode* cur,string name,int inodeAddr)
         if(item_size<10*32)
         {
                 int block_no = item_size/32;//第几个block
+                if(cur->directBlocks[block_no]==-1)
+                {
+                    cur->directBlocks[block_no]=allocateBlocks(1)[0];
+                }
                 int offset = (item_size%32)*32;  //在哪个block的字节偏移量
                 cur->filesize+=32;
                 //write the block to the disk
                 int writeAddr = cur->directBlocks[block_no] + offset;
-                fs.write(reinterpret_cast<const char*>(&item),writeAddr);
+                fs.seekp(writeAddr);
+                fs.write(reinterpret_cast<const char*>(&item),sizeof(DirItem));
+                writeINode(cur,currAddr);             
         }
         //不在前十个就要找indirect
         else
@@ -800,47 +871,65 @@ bool FileSys::appendDir(INode* cur,string name,int inodeAddr)
             cur->filesize+=32;
             //write the block to the disk
             int writeAddr = cur->directBlocks[block_no] + offset;
-            fs.write(reinterpret_cast<const char*>(&item),writeAddr);
+            fs.seekp(writeAddr);
+            fs.write(reinterpret_cast<const char*>(&item),sizeof(DirItem));
+            writeINode(cur,currAddr); 
         }
    }
    else
    {
-
         return false;
    }  
+   return 1;
 
 }
 
 void FileSys::getDir(INode* inode,Directory* dir)
 {
+    if(inode==nullptr)
+    {
+        cerr<<"nullprt error"<<endl;
+        return;
+    }
     if(inode->type!=D)
     {
+        cerr<<"filesize: "<<inode->filesize<<"id: "<<inode->i_id<<endl;
         cerr<<"It is not a directory file"<<endl;
         return ;
     }
     dir->items.clear();
     int size = inode->filesize;
-
+    
     int item_num = size/32;
     int item_cnt = 0;
     //先读前面十个
     for(int i =0;i<10;i++)
     {
+        //cout<<inode->directBlocks[i]<<endl;
         if(inode->directBlocks[i]!=-1)
         {
             fs.seekg(inode->directBlocks[i]);
+            //cout<<inode->directBlocks[i]<<endl;
             for(int j=0;j<32;j++)
             {
-                DirItem item;
-                fs.read(reinterpret_cast<char*>(&item),sizeof(DirItem));
-                if(item.i_addr!=0 && ++item_cnt<=item_num)//0表示没有用过
+                try
                 {
-                    dir->items.push_back(item);
+                    /* code */
+                    DirItem item;
+                    fs.read(reinterpret_cast<char*>(&item),sizeof(DirItem));                   
+                    if(item.i_addr!=0)//0表示没有用过
+                    {
+                        dir->items.push_back(item);
+                    }                   
+                }
+                catch(const std::exception& e)
+                {
+                    std::cerr << e.what() << '\n';
                 }
             }
         }
     }
-    if(item_cnt<item_num && inode->indirectBlock!=-1)
+    if(inode->indirectBlock!=-1)
     {
         vector<int> addrs = getAddrsInIndir(inode->indirectBlock);
         for(int i=0;i<addrs.size();i++)
@@ -850,15 +939,14 @@ void FileSys::getDir(INode* inode,Directory* dir)
             {
                 DirItem item;
                 fs.read(reinterpret_cast<char*>(&item),sizeof(DirItem));
-                if(item.i_addr!=0 && ++item_cnt<=item_num)
+                if(item.i_addr!=0)
                 {
+                    //cout<<item.name<<endl;
                     dir->items.push_back(item);
                 }
             }
         }
-
     }
-    
 }
 
 vector<int> FileSys::getAddrsInIndir(int addr)
@@ -955,9 +1043,13 @@ void FileSys::writeINode(INode* inode,int addr)
 
 //when a directory updates, wirte back
 //hold on, it seems that useless
-void FileSys::writeDir(INode* inode, int addr)
+void FileSys::writeDir(Directory* dir, int addr)
 {
-
+    fs.seekp(addr);
+    for(int i=0;i<dir->getSize();i++)
+    {
+        fs.write(reinterpret_cast<const char*>(&dir->items[i]),sizeof(DirItem));
+    }
 }
 
 template<typename T>
@@ -993,74 +1085,58 @@ void FileSys::init()
     */
     disk.superBlock.inode_bitmap[0]=1;          //the first inode is root
     disk.superBlock.inode_used+=1;
-    disk.superBlock.block_bitmap[i_start/1024]=1;    //
-    disk.superBlock.blocks_used+=ceil(disk.superBlock.inode_used*128/1024);             //one inode and a data block
+    disk.superBlock.block_bitmap[disk.superBlock.data_area_start_index]=1;    //
+    disk.superBlock.blocks_used+=1;             //one inode and a data block
 
     //set inode information
-    INode inode(0,D,1);
-    inode.directBlocks[0]=d_start;
-    inode.filesize = 32*2;   //两个items
+    INode root(0,D,0);
+    root.directBlocks[0]=d_start;
+    root.filesize = 32*4;   //两个items
 
     //set directory information
     Directory dir;
-    dir.items.push_back(DirItem("usr",1));
-    dir.items.push_back(DirItem("tmp",2));
+    int usr_id;
+    int usr_addr = allocateINode(usr_id);
+    //cout<<"id " <<usr_id<<"addr "<<usr_addr<<endl;
+
+    int tmp_id;
+    int tmp_addr = allocateINode(tmp_id);
+    //cout<<"id " <<tmp_id<<"addr "<<tmp_addr<<endl;
 
     //set the usr and tmp
-    INode usr(1,D,0);
-    INode tmp(2,D,0);
-    disk.superBlock.inode_bitmap[1]=1;
-    disk.superBlock.inode_used++;
-    disk.superBlock.inode_bitmap[2]=1;
-    disk.superBlock.inode_used++;
-
-    //write inodes to disk
-    fs.open("../VDISK",ios::in|ios::out|ios::binary);
-    fs.seekp(i_start);
-    fs.write(reinterpret_cast<const char*>(&inode),sizeof(INode));
-    fs.write(reinterpret_cast<const char*>(&usr),sizeof(INode));
-    fs.write(reinterpret_cast<const char*>(&tmp),sizeof(INode));
+    INode usr(usr_id,D,32*2);
+    INode tmp(tmp_id,D,32*2);
+    //store . and ..
+    auto u_addr = allocateBlocks(1);
+    auto t_addr = allocateBlocks(1);
+ 
+    usr.directBlocks[0] = u_addr[0];
+    tmp.directBlocks[0] = t_addr[0];
+    Directory u_dir;
+    Directory t_dir;
     
+    u_dir.items.push_back(DirItem(".",usr_addr));
+    u_dir.items.push_back(DirItem("..",i_start));
+    t_dir.items.push_back(DirItem(".",tmp_addr));
+    t_dir.items.push_back(DirItem("..",i_start));
+
+    //root dir
+    dir.items.push_back(DirItem("usr",usr_addr));
+    dir.items.push_back(DirItem("tmp",tmp_addr));
+    dir.items.push_back(DirItem(".",i_start));
+    dir.items.push_back(DirItem("..",i_start));
+    //write inodes to disk
+    writeINode(&root,i_start);
+    writeINode(&usr,usr_addr);
+    writeINode(&tmp,tmp_addr);
 
     //write data to data area
     //first 10 blocks
-    int i=0;
-    for(i=0;i<dir.getSize();i++)
-    {
-        if(i==32*10) break;
-        if(i%32==0)
-        {
-            fs.seekp(inode.directBlocks[i/32]);
-        }
-        fs.write(reinterpret_cast<const char*>(&dir.items[i]),sizeof(DirItem));
-    }
-    if(i==32*10)
-    {
-        //the first 10 blocks are not big enough
-        vector<int> addrs;
-        //how many indirect address
-        fs.seekg(inode.indirectBlock);
-        for(int j=0;j<32;j++)//one block can store max 32 32-bit addresses
-        {
-            int addr;
-            fs.read(reinterpret_cast<char*>(&addr),sizeof(int));
-            if(addr!=-1)
-            {
-                addrs.push_back(addr);
-            }
-        }
-        //write 
-        int cnt = 0;
-        for(int j =i;j<dir.getSize();j++)
-        {
-            if(cnt%32==0)
-            {
-                fs.seekp(addrs[cnt/32]);
-            }
-            fs.write(reinterpret_cast<const char*>(&dir.items[j]),sizeof(DirItem));
-            cnt++;
-        }
-    }
+    writeDir(&dir,root.directBlocks[0]);
+    writeDir(&u_dir,usr.directBlocks[0]);
+    writeDir(&t_dir,tmp.directBlocks[0]);
+    
+    cout<<"format success"<<endl;
 }
 
 void FileSys::freeDIrHelper(INode* inode)
@@ -1103,4 +1179,5 @@ void FileSys::freeDIrHelper(INode* inode)
 int FileSys::blockIdToAddr(int id)
 {
     int addr = disk.superBlock.data_begin+id*disk.superBlock.block_size;
+    return addr;
 }

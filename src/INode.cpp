@@ -34,15 +34,17 @@ void INode::showTime(const tm& t)
     // time_t now;
     // time(&now);
     // tm* t = localtime(&now);
-    printf("%04d.%02d.%02d %02d:%02d:%02d\n",
+    printf("%04d.%02d.%02d %02d:%02d:%02d ",
     t.tm_year+1900,t.tm_mon+1,t.tm_mday,t.tm_hour,t.tm_min,t.tm_sec);   
 }
 
 void INode::print()
 {
-    printf("%d %d ",type,filesize);
+    using std::cout;
+    cout<<(type==D ? "dir":"file")<<" "<<filesize<<" ";
     showTime(createTime);
     showTime(modTime);
+    cout<<"\n";
 }
 
 void INode::setId(int id)

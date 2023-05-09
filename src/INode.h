@@ -73,13 +73,17 @@ public:
 class DirItem
 {    
 public:
-    string name;                  //name of file or dir
+    char name[24];                  //name of file or dir
     int    i_addr;                //@attention 这里是地址                  
     bool   live;                  //false means deleted
-    DirItem(string _name,int _id)
+    DirItem(string _name,int addr)
     {
-        name = _name;
-        i_addr = _id;
+        for(int i=0;i<_name.size();i++)
+        {
+            name[i] = _name[i];
+        }
+        name[_name.size()]='\0';
+        i_addr = addr;
         live = true;
     }
     DirItem(){}

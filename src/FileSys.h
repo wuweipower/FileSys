@@ -46,6 +46,12 @@ private:
     void init();
     void showHelp();
 
+    /**
+     * @return return the sperated terms, simple
+     * @example pathResolve("../usr/cpp/local") .. usr cpp local
+     * @example pathResolve("./usr/cpp/local"); . usr cpp local
+     * @example pathResolve("usr/cpp/local"); usr cpp local
+    */
     vector<string> pathResolve(string path);
 
     void open();
@@ -69,7 +75,7 @@ private:
     void getDir(INode* inode,Directory* dir);
 
     //write the directory values back to disk
-    void writeDir(INode*,int addr);
+    void writeDir(Directory *dir,int addr);
 
     /**
      * according to the filename to find the inode address
@@ -80,7 +86,7 @@ private:
     /**
      * append the directory item on the specified inode
     */
-    bool appendDir(INode* cur,string name,int inodeAddr);
+    bool appendDir(INode* cur,string name,int inodeAddr,int currAddr);
 
     /**
      * @param id the parameter will be changed to the allocated inode id
@@ -91,7 +97,7 @@ private:
 
     /**
      * @param num the number of allocating blocks
-     * @return return the addressed
+     * @return return the addresses
      * @attention it starts from the data area
     */
     vector<int> allocateBlocks(int num);    
