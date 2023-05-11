@@ -72,7 +72,7 @@ private:
     void writeINode(INode*,int addr);
     
     //according to the inode to get the directory items
-    void getDir(INode* inode,Directory* dir);
+    bool getDir(INode* inode,Directory* dir);
 
     //write the directory values back to disk
     void writeDir(Directory *dir,int addr);
@@ -87,6 +87,11 @@ private:
      * append the directory item on the specified inode
     */
     bool appendDir(INode* cur,string name,int inodeAddr,int currAddr);
+
+    /**
+     * delete the directory item on the specified inode
+    */
+    bool deleteDirItem(INode* cur,string name,int inodeAddr,int currAddr);
 
     /**
      * @param id the parameter will be changed to the allocated inode id
@@ -146,6 +151,10 @@ private:
     void getContent(vector<T>&v,int addr,int capacity);
 
     void freeDIrHelper(INode* inode);
+
+    string getAbsPath(vector<string>&paths);
+
+    void getFirstInodeDir(vector<string>& paths,INode* inode,Directory* dir);
 
 public:
 
