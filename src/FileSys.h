@@ -91,7 +91,7 @@ private:
     /**
      * delete the directory item on the specified inode
     */
-    bool deleteDirItem(INode* cur,string name,int inodeAddr,int currAddr);
+    bool deleteDirItem(INode* cur,int currAddr,Directory* dir, string filename);
 
     /**
      * @param id the parameter will be changed to the allocated inode id
@@ -155,6 +155,11 @@ private:
     string getAbsPath(vector<string>&paths);
 
     void getFirstInodeDir(vector<string>& paths,INode* inode,Directory* dir);
+
+    /**
+     * @return if there is a dead one, return the address, else -1
+    */
+    int getDeadInodeAddr(INode* inode);
 
 public:
 
