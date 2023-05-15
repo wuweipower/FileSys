@@ -294,7 +294,6 @@ bool FileSys::deleteFile(string filename)
         if(inode.directBlocks[i]!=-1)
         {
             int id = blockAddrToId(inode.directBlocks[i]);
-            inode.directBlocks[i]=-1;
             freeBlock(id);
         }
     }
@@ -335,7 +334,7 @@ bool FileSys::createDir(string dir)
         getINode(addr,&inode);
     }
     preAddr = getInodeAddrByName(".",&directory);
-    for(int i=0;i<paths.size();i++)
+    for(int i=0;i<paths.size()-1;i++)
     {
         int addr = getInodeAddrByName(paths[i],&directory);
         if(addr!=-1)//存在对应的dir entry
