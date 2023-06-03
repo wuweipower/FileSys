@@ -43,7 +43,10 @@ private:
     fstream fs;
     INode* currInode;
 
+    //set the root directory infomation
     void init();
+
+    //if input wrong command, showing the right command
     void showHelp();
 
     /**
@@ -54,7 +57,10 @@ private:
     */
     vector<string> pathResolve(string path);
 
+    // open the disk
     void open();
+
+    //close the disk
     void close();
 
     /**
@@ -62,13 +68,13 @@ private:
     */
     void updateSuperBlock();
 
-    //get the root directory and it is start of everything
+    //get the root directory and it is the start of everything
     void getRootDir(Directory* dir);
 
     //according to the address to get the inode content
     void getINode(int addr,INode* inode);
 
-    //write the inode data to disk
+    //write the inode data to disk according to the address
     void writeINode(INode*,int addr);
     
     //according to the inode to get the directory items
@@ -150,10 +156,13 @@ private:
     template<typename T>
     void getContent(vector<T>&v,int addr,int capacity);
 
+    // recurrsiveky delete the direcory and files
     void freeDIrHelper(INode* inode);
 
+    // get the absolute path of the file/dir name
     string getAbsPath(vector<string>&paths);
 
+    // get the directory of first inode 
     void getFirstInodeDir(vector<string>& paths,INode* inode,Directory* dir);
 
     /**
