@@ -106,7 +106,7 @@ bool FileSys::createFile(string filename,string filesize)
     catch(const std::exception& e)
     {
         cerr<<"The size should contain the right digits"<<endl;
-        std::cerr << e.what() << '\n';
+        //std::cerr << e.what() << '\n';
         return false;
     }
       
@@ -299,6 +299,8 @@ bool FileSys::deleteFile(string filename)
     }
     if(inode.indirectBlock!=-1)
     {
+        int id = blockAddrToId(inode.indirectBlock);
+        freeBlock(id);
         vector<int> addrs = getAddrsInIndir(inode.indirectBlock);
         for(int i=0;i<addrs.size();i++)
         {
@@ -681,9 +683,14 @@ bool FileSys::cp(string from, string to)
         }
     }
     int curAddr = getInodeAddrByName(".",&tdir);
-    appendDir(&tinode,tfile,iaddr,curAddr);
-    writeINode(&new_inode,iaddr);
-    return true;
+    if(appendDir(&tinode,tfile,iaddr,curAddr))
+    {
+        writeINode(&new_inode,iaddr);
+        return true;
+    }
+    else
+    return false;
+   
 }
 
 
@@ -835,7 +842,14 @@ void FileSys::entry()
 
             if(temp=="cd")
             {
-                cd(argv[i+1]);
+                if(argv[i+1]!=NULL)
+                {
+                    cd(argv[i+1]);
+                }
+                else
+                {
+                    cerr<<"Error: Missing argument for command 'cd'\n";
+                }              
                 break;
             }
             else if(temp=="exit")
@@ -845,27 +859,50 @@ void FileSys::entry()
             }
             else if(temp=="createFile")
             {
-                if(argv[i+2]==NULL)
+                if(argv[i+1]!=NULL&&argv[i+2]!=NULL) 					//arg1 = name of the file
                 {
-                    cerr<<"No filesize"<<endl;
-                    break;
+                    createFile(argv[i+1],argv[i+2]);
                 }
-                createFile(argv[i+1],argv[i+2]);
+                else
+                {
+                    cerr<<"Error: Missing argument for command 'createFile'\n";
+                }
                 break;
             }
             else if(temp=="deleteFile")
             {
-                deleteFile(argv[i+1]);
+                if (argv[i+1]!=NULL)
+                {
+                    deleteFile(argv[i+1]); 							//arg1 = name of the file
+                }
+                else
+                {
+                    cerr<<"Error: Missing argument for command 'deleteFile'\n";
+                }               
                 break;
             }
             else if(temp=="createDir")
             {
-                createDir(argv[i+1]);
+                if(argv[i+1]!=NULL)
+                {
+                    createDir(argv[i+1]);
+                }  
+                else
+                {
+                    cerr<<"Error: Missing argument for command 'createDir'\n";
+                }
                 break;
             }
             else if(temp=="deleteDir")
             {
-                deleteDir(argv[i+1]);
+                if(argv[i+1]!=NULL)
+                {
+                    deleteDir(argv[i+1]);
+                }
+                else
+                {
+                    cerr<<"Error: Missing argument for command 'deleteDir'\n";
+                }
                 break;
             }
             else if(temp=="ls")
@@ -875,6 +912,11 @@ void FileSys::entry()
             }
             else if(temp=="cp")
             {
+                if(argv[i+1]==NULL || argv[i+2]==NULL) 		//checking for null arguments.
+                {
+                    cerr<<"Missing arguments"<<endl; 		//if null arguments are entered.
+                    break;
+                }
                 cp(argv[i+1],argv[i+2]);
                 break;
             }
@@ -885,6 +927,11 @@ void FileSys::entry()
             }
             else if(temp=="cat")
             {
+                if(argv[i+1]==NULL)
+                {
+                    cerr<<"No filename"<<endl;
+                    break;
+                }
                 cat(argv[i+1]);
                 break;
             }
@@ -897,6 +944,10 @@ void FileSys::entry()
             {
                 init();
                 break;
+            }
+            else if(temp=="cls")
+            {
+                system( "cls");
             }
             else
             {
@@ -1121,6 +1172,7 @@ bool FileSys::deleteDirItem(INode* cur,int currAddr,Directory* dir, string filen
         if(dir->items[i].name==filename)
         {
             dir->items[i].live = false;
+            //dir->items[i].i_addr = -1;  //indirect block will be set later when needed.  It will be set to -1
             cur->filesize-=32;
             writeINode(cur,currAddr);
             break;
@@ -1178,6 +1230,7 @@ bool FileSys::getDir(INode* inode,Directory* dir)
                     fs.read(reinterpret_cast<char*>(&item),sizeof(DirItem));                   
                     if(item.i_addr!=-1 && item.i_addr!=0 && item.live)//0表示没有用过 -1表示被删除了
                     {
+                        //cout<<"item info"<<item.i_addr<<" "<<item.name<<" "<<item.live<<endl;
                         dir->items.push_back(item);
                     }                   
                 }
@@ -1235,7 +1288,7 @@ void FileSys::generateRandomChs(int addr)
     {
         try
         {
-            ch = char((rand()%100) +1 );
+            ch = char((rand()%90) +31 );
         }
         catch(const std::exception& e)
         {
@@ -1431,22 +1484,28 @@ void FileSys::freeDIrHelper(INode* inode)
     }
     else
     {
-        if(1)
+        Directory dir;
+        getDir(inode,&dir);
+        for(int i =0;i<10;i++)
         {
-
-        }
-        else
-        {
-            Directory dir;
-            getDir(inode,&dir);
-            for(int i=2;i<dir.getSize();i++)//. 和..会无限循环
+            if(inode->directBlocks[i]!=-1)
             {
-                INode next;
-                getINode(dir.items[i].i_addr,&next);
-                freeDIrHelper(&next);
+                int id = blockAddrToId(inode->directBlocks[i]);
+                inode->directBlocks[i]=-1;
+                freeBlock(id);
             }
         }
-        
+        if(inode->indirectBlock!=-1)
+        {
+            int id = blockAddrToId(inode->indirectBlock);
+            freeBlock(id);
+        }
+        for(int i=2;i<dir.getSize();i++)//. 和..会无限循环
+        {
+            INode next;
+            getINode(dir.items[i].i_addr,&next);
+            freeDIrHelper(&next);
+        }  
     }  
 }
 
