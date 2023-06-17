@@ -78,7 +78,7 @@ private:
     void writeINode(INode*,int addr);
     
     //according to the inode to get the directory items
-    bool getDir(INode* inode,Directory* dir);
+    bool getDir(INode* inode,Directory* dir,bool all=false);
 
     //write the directory values back to disk
     void writeDir(Directory *dir,int addr);

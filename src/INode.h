@@ -75,7 +75,7 @@ class DirItem
 public:
     char name[24];                  //name of file or dir
     int    i_addr;                //@attention 这里是地址                  
-    bool   live;                  //false means deleted
+    int    index;                  
     DirItem(string _name,int addr)
     {
         for(int i=0;i<_name.size();i++)
@@ -84,7 +84,7 @@ public:
         }
         name[_name.size()]='\0';
         i_addr = addr;
-        live = true;
+        index = 1;
     }
     DirItem(){}
 };

@@ -51,17 +51,18 @@ void FileSys::test()
     //     if(i%148==0)
     //     cout<<endl;
     // }
-    string dir = "../usr/local";
-    auto p = pathResolve(dir);
-    getAbsPath(p);
+    // string dir = "../usr/local";
+    // auto p = pathResolve(dir);
+    // getAbsPath(p);
 
-    dir = "./ll/aa";
-    p = pathResolve(dir);
-    getAbsPath(p);
+    // dir = "./ll/aa";
+    // p = pathResolve(dir);
+    // getAbsPath(p);
 
-    dir = "/usr/l/a";
-    p = pathResolve(dir);
-    getAbsPath(p);
+    // dir = "/usr/l/a";
+    // p = pathResolve(dir);
+    // getAbsPath(p);
+    cout<<(sizeof (DirItem))<<endl;
 }
 
 static const int CMD_LEN=64;
@@ -279,6 +280,7 @@ bool FileSys::deleteFile(string filename)
     string file = paths[paths.size()-1];
     //处理文件目录项
     int currAddr = getInodeAddrByName(".",&dir);
+    getDir(&inode,&dir,true);
     deleteDirItem(&inode,currAddr,&dir,file);
 
     int fileInodeAddr=getInodeAddrByName(file,&dir);
@@ -1167,17 +1169,23 @@ bool FileSys::appendDir(INode* cur,string name,int inodeAddr, int currAddr)
 bool FileSys::deleteDirItem(INode* cur,int currAddr,Directory* dir, string filename)
 {
     int i;
+    //int origin_index;
     for( i=0;i<dir->getSize();i++)
     {
         if(dir->items[i].name==filename)
         {
-            dir->items[i].live = false;
+            //cout<<dir->items[i].index<<endl;
+            //origin_index = dir->items[i].index;
+            dir->items[i].index = -1;
+            //cout<<dir->items[i].name<<" is now dead"<<endl;
             //dir->items[i].i_addr = -1;  //indirect block will be set later when needed.  It will be set to -1
             cur->filesize-=32;
             writeINode(cur,currAddr);
             break;
         }
     }
+    //cout<<"i is "<<i<<endl;//bug find!
+    //原因是如果先删前面，后面文件的得到的i对应的磁盘中的地址不对
     //写回目录 这个
     int block_no = i/32;
     int block_offset = i%32;
@@ -1195,7 +1203,7 @@ bool FileSys::deleteDirItem(INode* cur,int currAddr,Directory* dir, string filen
     return true;
     
 }
-bool FileSys::getDir(INode* inode,Directory* dir)
+bool FileSys::getDir(INode* inode,Directory* dir,bool all)
 {
     if(inode==nullptr)
     {
@@ -1227,8 +1235,12 @@ bool FileSys::getDir(INode* inode,Directory* dir)
                 {
                     /* code */
                     DirItem item;
-                    fs.read(reinterpret_cast<char*>(&item),sizeof(DirItem));                   
-                    if(item.i_addr!=-1 && item.i_addr!=0 && item.live)//0表示没有用过 -1表示被删除了
+                    fs.read(reinterpret_cast<char*>(&item),sizeof(DirItem)); 
+                    if(all==true)
+                    {
+                        dir->items.push_back(item);
+                    }  
+                    else if(item.i_addr!=-1 && item.i_addr!=0 && item.index!=-1)//0表示没有用过 -1表示被删除了
                     {
                         //cout<<"item info"<<item.i_addr<<" "<<item.name<<" "<<item.live<<endl;
                         dir->items.push_back(item);
@@ -1251,7 +1263,11 @@ bool FileSys::getDir(INode* inode,Directory* dir)
             {
                 DirItem item;
                 fs.read(reinterpret_cast<char*>(&item),sizeof(DirItem));
-                if(item.i_addr!=0 && item.i_addr!=-1 && item.live)
+                if(all==true)
+                {
+                     dir->items.push_back(item);
+                }
+                else if(item.i_addr!=0 && item.i_addr!=-1 && item.index!=-1)
                 {
                     //cout<<item.name<<endl;
                     dir->items.push_back(item);
@@ -1596,7 +1612,7 @@ int FileSys::getDeadInodeAddr(INode* inode)
             {
                 int addr = fs.tellg();
                 fs.read(reinterpret_cast<char*>(&item),sizeof(DirItem));
-                if(item.live==false)
+                if(item.index==-1)
                 {
                     return addr;//return addr of dead inode addr
                 }
@@ -1614,7 +1630,7 @@ int FileSys::getDeadInodeAddr(INode* inode)
                 DirItem item;
                 int addr = fs.tellg();
                 fs.read(reinterpret_cast<char*>(&item),sizeof(DirItem));
-                if(item.live==false)
+                if(item.index==-1)
                 {
                     return addr;
                 }
