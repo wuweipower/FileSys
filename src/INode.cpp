@@ -41,7 +41,8 @@ void INode::showTime(const tm& t)
 void INode::print()
 {
     using std::cout;
-    cout<<(type==D ? "dir":"file")<<" "<<filesize<<" ";
+    using std::setw;
+    cout<<setw(4)<<(type==D ? "dir":"file")<<setw(5)<<filesize<<" ";
     showTime(createTime);
     showTime(modTime);
     cout<<"\n";

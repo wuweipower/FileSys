@@ -9,6 +9,7 @@ const short F = 1;//FILE
 #include<vector>
 #include<iostream>
 #include"Disk.h"
+#include<iomanip>
 using std::string;
 using std::cerr;
 using std::vector;

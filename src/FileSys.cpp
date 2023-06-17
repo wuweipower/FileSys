@@ -549,12 +549,14 @@ bool FileSys::ls()
     getDir(currInode,&dir);
     
     //cout<<"dir"<<dir.getSize()<<endl;
+    cout<<setw(20)<<"Name "<<setw(4)<<"type"<<setw(5)<<"size"<<setw(20)<<"createTime"
+    <<setw(20)<<"modTime"<<endl;
     for(int i=0;i<dir.getSize();i++)
     {
         INode temp;
         int iaddr = dir.items[i].i_addr;
         getINode(iaddr,&temp);
-        cout<<dir.items[i].name<<" ";
+        cout<<setw(20)<<dir.items[i].name<<" ";
         temp.print();
     }
     

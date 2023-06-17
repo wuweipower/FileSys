@@ -7,6 +7,7 @@
 #include"Disk.h"
 #include<vector>
 #include<random>
+#include<iomanip>
 using namespace std;
 using std::string;
 //16MB space
