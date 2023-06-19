@@ -64,7 +64,7 @@ The directory entry design is following:
 
 - name: 24 byte char array. 
 - I-Node address
-- live: live or dead. Actually it is not used often. Just used to padding.
+- index:  Actually it is not used often. Just used to padding.
 
 Why the name is only 24 byte long?
 

@@ -16,7 +16,6 @@ using std::vector;
 class INode
 {
 public:
-
     //inode id used to search int bitmap,-1 means been deleted
     int i_id;
 
@@ -36,7 +35,6 @@ public:
     /**
      * one indirect block address 1kB/4B=256 pointer
      * if the address is -1, it means it is not used and could not be occupied by others
-     * 
     */
     int indirectBlock;       
 

@@ -448,6 +448,7 @@ bool FileSys::deleteDir(string dir)
     //处理目录文件
     string file = paths[paths.size()-1];
     int currAddr = getInodeAddrByName(".",&directory);
+    getDir(&inode,&directory,true);
     deleteDirItem(&inode,currAddr,&directory,file);
     //处理这个dir以及下面的所有文件
     int fileInodeAddr=getInodeAddrByName(file,&directory);
@@ -1020,9 +1021,7 @@ int FileSys::getInodeAddrByName(string filename,Directory* dir)
 void FileSys::getINode(int addr,INode* inode)
 {
     fs.seekg(addr);
-    //cout<<addr<<endl;
     fs.read(reinterpret_cast<char*>(inode),sizeof(INode));
-    //cout<<inode->filesize<<endl;
 }
 
 
@@ -1114,7 +1113,7 @@ bool FileSys::appendDir(INode* cur,string name,int inodeAddr, int currAddr)
             cur->filesize+=32;
             writeINode(cur,currAddr);
         }
-        else if(item_size<10*32)//这里要重新写，先找到一个live是false的在这里重写
+        else if(item_size<10*32)//
         {
                 int block_no = item_size/32;//第几个block
                 if(cur->directBlocks[block_no]==-1)
@@ -1171,24 +1170,16 @@ bool FileSys::appendDir(INode* cur,string name,int inodeAddr, int currAddr)
 bool FileSys::deleteDirItem(INode* cur,int currAddr,Directory* dir, string filename)
 {
     int i;
-    //int origin_index;
     for( i=0;i<dir->getSize();i++)
     {
         if(dir->items[i].name==filename)
         {
-            //cout<<dir->items[i].index<<endl;
-            //origin_index = dir->items[i].index;
             dir->items[i].index = -1;
-            //cout<<dir->items[i].name<<" is now dead"<<endl;
-            //dir->items[i].i_addr = -1;  //indirect block will be set later when needed.  It will be set to -1
             cur->filesize-=32;
             writeINode(cur,currAddr);
             break;
         }
     }
-    //cout<<"i is "<<i<<endl;//bug find!
-    //原因是如果先删前面，后面文件的得到的i对应的磁盘中的地址不对
-    //写回目录 这个
     int block_no = i/32;
     int block_offset = i%32;
     if(block_no<10)
@@ -1244,7 +1235,6 @@ bool FileSys::getDir(INode* inode,Directory* dir,bool all)
                     }  
                     else if(item.i_addr!=-1 && item.i_addr!=0 && item.index!=-1)//0表示没有用过 -1表示被删除了
                     {
-                        //cout<<"item info"<<item.i_addr<<" "<<item.name<<" "<<item.live<<endl;
                         dir->items.push_back(item);
                     }                   
                 }

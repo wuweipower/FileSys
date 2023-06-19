@@ -178,8 +178,8 @@ public:
     //It is also the claim of your ‘copyright’
     void welcome()
     {
-        cout<<"   Designed by Xin Huang  "<<endl;
-        cout<<"Copyright reserved by Xin Huang"<<endl;
+        cout<<"         Designed by Xin Huang       "<<endl;
+        cout<<"Copyright reserved by Xin Huang, Group ID:2"<<endl;
     }
 
     //constructor
