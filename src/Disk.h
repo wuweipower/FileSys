@@ -22,8 +22,8 @@ public:
     bool block_bitmap[BLOCK_NUM];                 // 16*1024 B
     bool inode_bitmap[INODE_NUM];                 // 1024 B
 
-    const static unsigned int block_size=1024;           // 1024B for a block
-    const static unsigned int inode_size=128;            // the size of one inode structure 128byte
+    const static unsigned int block_size=1024;    // 1024B for a block
+    const static unsigned int inode_size=128;     // the size of one inode structure 128byte
     unsigned int blocks_used;                     // 32B
     unsigned int free_blocks;                     // 32B
     unsigned int inode_used;
